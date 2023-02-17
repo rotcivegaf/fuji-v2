@@ -34,6 +34,14 @@ contract SelfDestructor {
   }
 }
 
+contract ERC20NoRevertOnTransfer is ERC20 {
+  constructor() ERC20("", "") {}
+
+  function transfer(address to, uint256 amount) public virtual override returns (bool) {
+    return false;
+  }
+}
+
 contract SimpleRouterUnitTests is MockingSetup {
   event Deposit(address indexed sender, address indexed owner, uint256 assets, uint256 shares);
 
@@ -290,6 +298,12 @@ contract SimpleRouterUnitTests is MockingSetup {
 
     simpleRouter.sweepToken(ERC20(collateralAsset), BOB);
     assertEq(ERC20(collateralAsset).balanceOf(BOB), amount_);
+  }
+
+  function test_trySweepTokenAndReturnFalse(uint256 amount_) public {
+    ERC20NoRevertOnTransfer testToken = new ERC20NoRevertOnTransfer();
+    vm.expectRevert("SafeERC20: ERC20 operation did not succeed");
+    simpleRouter.sweepToken(testToken, BOB);
   }
 
   function test_tryFoeSweepToken(address foe) public {

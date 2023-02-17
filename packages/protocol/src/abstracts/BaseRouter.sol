@@ -103,7 +103,7 @@ abstract contract BaseRouter is SystemAccessControl, IRouter {
   /// @inheritdoc IRouter
   function sweepToken(ERC20 token, address receiver) external onlyHouseKeeper {
     uint256 balance = token.balanceOf(address(this));
-    token.transfer(receiver, balance);
+    token.safeTransfer(receiver, balance);
   }
 
   /// @inheritdoc IRouter

@@ -47,7 +47,7 @@ contract FlasherEulerForkingTest is Routines, ForkingSetup, IFlashloan {
       abi.encodeWithSelector(rebalancer.allowExecutor.selector, address(this), true);
     _callWithTimelock(address(rebalancer), executionCall);
 
-    flasher = new FlasherEuler(0x27182842E098f60e3D576794A5bFFb0777E025d3);
+    flasher = new FlasherEuler(0x27182842E098f60e3D576794A5bFFb0777E025d3, 0x3520d5a913427E6F0D6A83E07ccD4A4da316e4d3);
     executionCall = abi.encodeWithSelector(chief.allowFlasher.selector, address(flasher), true);
     _callWithTimelock(address(chief), executionCall);
 

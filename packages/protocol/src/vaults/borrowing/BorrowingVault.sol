@@ -142,8 +142,6 @@ contract BorrowingVault is BaseVault {
     _setActiveProvider(providers_[0]);
   }
 
-  receive() external payable {}
-
   /*///////////////////////////////
   /// Debt management overrides ///
   ///////////////////////////////*/

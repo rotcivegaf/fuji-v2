@@ -7,7 +7,7 @@ pragma solidity 0.8.15;
  * @author Fujidao Labs
  *
  * @notice This library implements workaround methods to compute
- * the latest state (of interest accroual) without having to call
+ * the latest state (of interest accrual) without having to call
  * change state methods directly on Compound.
  *
  * @dev Inspired and modified from Transmissions11

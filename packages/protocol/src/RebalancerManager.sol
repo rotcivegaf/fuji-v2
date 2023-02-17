@@ -6,7 +6,7 @@ pragma solidity 0.8.15;
  *
  * @author Fujidao Labs
  *
- * @notice  Contract that faciliates rebalancing of the FujiV2 vaults.
+ * @notice  Contract that facilities rebalancing of the FujiV2 vaults.
  */
 
 import {IRebalancerManager} from "./interfaces/IRebalancerManager.sol";
@@ -35,7 +35,7 @@ contract RebalancerManager is IRebalancerManager, SystemAccessControl {
 
   bytes32 private _entryPoint;
 
-  constructor(address chief_) SystemAccessControl(chief_) {}
+  constructor(address chief_) payable SystemAccessControl(chief_) {}
 
   /// @inheritdoc IRebalancerManager
   function rebalanceVault(

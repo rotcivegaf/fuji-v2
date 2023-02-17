@@ -264,6 +264,7 @@ interface IVault is IERC4626 {
     bool setToAsActiveProvider
   )
     external
+    payable
     returns (bool);
 
   /*/////////////////////////
@@ -311,10 +312,10 @@ interface IVault is IERC4626 {
    *
    * WARNING! It is liquidator's responsability to check if liquidation is profitable.
    */
-  function liquidate(address owner, address receiver) external returns (uint256 gainedShares);
+  function liquidate(address owner, address receiver) external payable returns (uint256 gainedShares);
 
   /*/////////////////////
-     Setter functions 
+     Setter functions
   ////////////////////*/
 
   /**
@@ -325,7 +326,7 @@ interface IVault is IERC4626 {
    * @dev Requirements:
    * - Must not contain zero addresses.
    */
-  function setProviders(ILendingProvider[] memory providers) external;
+  function setProviders(ILendingProvider[] memory providers) external payable;
 
   /**
    * @notice Sets the active provider for this vault.
@@ -339,14 +340,14 @@ interface IVault is IERC4626 {
    * WARNING! Changing active provider without a `rebalance()` call
    * can result in denial of service for vault users.
    */
-  function setActiveProvider(ILendingProvider activeProvider) external;
+  function setActiveProvider(ILendingProvider activeProvider) external payable;
 
   /**
    * @notice Sets the minimum amount for: `deposit()`, `mint()` and borrow()`.
    *
    * @param amount to be as minimum.
    */
-  function setMinAmount(uint256 amount) external;
+  function setMinAmount(uint256 amount) external payable;
 
   /**
    * @notice Sets the deposit cap amount of this vault.
@@ -356,5 +357,5 @@ interface IVault is IERC4626 {
    * @dev Requirements:
    * - Must be greater than zero.
    */
-  function setDepositCap(uint256 newCap) external;
+  function setDepositCap(uint256 newCap) external payable;
 }

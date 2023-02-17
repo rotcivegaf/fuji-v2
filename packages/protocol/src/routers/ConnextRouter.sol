@@ -84,7 +84,7 @@ contract ConnextRouter is BaseRouter, IXReceiver {
    */
   mapping(uint256 => address) public routerByDomain;
 
-  constructor(IWETH9 weth, IConnext connext_, IChief chief) BaseRouter(weth, chief) {
+  constructor(IWETH9 weth, IConnext connext_, IChief chief) payable BaseRouter(weth, chief) {
     connext = connext_;
     _allowCaller(address(connext_), true);
   }
@@ -103,7 +103,7 @@ contract ConnextRouter is BaseRouter, IXReceiver {
    * @param originDomain the origin domain identifier according Connext nomenclature
    * @param callData the calldata that will get decoded and executed, see "Requirements"
    *
-   * @dev It performs authentification of the calling address. As a result of that,
+   * @dev It performs authentication of the calling address. As a result of that,
    * all txns go through Connext's slow path.
    * If `xBundle` fails internally, this contract will keep custody of the sent funds.
    *
@@ -143,7 +143,9 @@ contract ConnextRouter is BaseRouter, IXReceiver {
     if (balance < amount) {
       revert ConnextRouter__xReceive_notReceivedAssetBalance();
     } else {
-      _tokensToCheck.push(Snapshot(asset, balance - amount));
+      unchecked {
+        _tokensToCheck.push(Snapshot(asset, balance - amount));
+      }
     }
 
     /**
@@ -242,7 +244,7 @@ contract ConnextRouter is BaseRouter, IXReceiver {
   }
 
   /// @inheritdoc BaseRouter
-  function _crossTransfer(bytes memory params) internal override {
+  function _crossTransfer(address beneficiary, bytes calldata params) internal override returns(address) {
     (
       uint256 destDomain,
       uint256 slippage,
@@ -252,12 +254,13 @@ contract ConnextRouter is BaseRouter, IXReceiver {
       address sender
     ) = abi.decode(params, (uint256, uint256, address, uint256, address, address));
 
-    _checkBeneficiary(receiver);
+    IConnext _connext = connext;
+    beneficiary = _checkBeneficiary(beneficiary, receiver);
 
     _safePullTokenFrom(asset, sender, receiver, amount);
-    _safeApprove(asset, address(connext), amount);
+    _safeApprove(asset, address(_connext), amount);
 
-    bytes32 transferId = connext.xcall(
+    bytes32 transferId = _connext.xcall(
       // _destination: Domain ID of the destination chain
       uint32(destDomain),
       // _to: address of the target contract
@@ -269,35 +272,39 @@ contract ConnextRouter is BaseRouter, IXReceiver {
       msg.sender,
       // _amount: amount of tokens to transfer
       amount,
-      // _slippage: can be anything between 0-10000 becaus
+      // _slippage: can be anything between 0-10000 because
       // the maximum amount of slippage the user will accept in BPS, 30 == 0.3%
       slippage,
       // _callData: empty because we're only sending funds
       ""
     );
     emit XCalled(transferId, msg.sender, receiver, destDomain, asset, amount, "");
+
+    return beneficiary;
   }
 
   /// @inheritdoc BaseRouter
-  function _crossTransferWithCalldata(bytes memory params) internal override {
+  function _crossTransferWithCalldata(bytes calldata params) internal override {
     (uint256 destDomain, uint256 slippage, address asset, uint256 amount, bytes memory callData) =
       abi.decode(params, (uint256, uint256, address, uint256, bytes));
 
+    IConnext _connext = connext;
     _safePullTokenFrom(asset, msg.sender, msg.sender, amount);
     _safeApprove(asset, address(connext), amount);
+    address router = routerByDomain[destDomain];
 
     bytes32 transferId = connext.xcall(
       // _destination: Domain ID of the destination chain
       uint32(destDomain),
       // _to: address of the target contract
-      routerByDomain[destDomain],
+      router,
       // _asset: address of the token contract
       asset,
       // _delegate: address that can revert or forceLocal on destination
       msg.sender,
       // _amount: amount of tokens to transfer
       amount,
-      // _slippage: can be anything between 0-10000 becaus
+      // _slippage: can be anything between 0-10000 because
       // the maximum amount of slippage the user will accept in BPS, 30 == 0.3%
       slippage,
       // _callData: the encoded calldata to send
@@ -305,8 +312,8 @@ contract ConnextRouter is BaseRouter, IXReceiver {
     );
 
     emit XCalled(
-      transferId, msg.sender, routerByDomain[destDomain], destDomain, asset, amount, callData
-      );
+      transferId, msg.sender, router, destDomain, asset, amount, callData
+    );
   }
 
   /**
@@ -330,7 +337,7 @@ contract ConnextRouter is BaseRouter, IXReceiver {
    *  - Must be restricted to timelock.
    *  - `router` must be a non-zero address.
    */
-  function setRouter(uint256 domain, address router) external onlyTimelock {
+  function setRouter(uint256 domain, address router) external payable onlyTimelock {
     if (router == address(0)) {
       revert ConnextRouter__setRouter_invalidInput();
     }

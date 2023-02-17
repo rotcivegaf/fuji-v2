@@ -16,7 +16,7 @@ import {IERC20Metadata} from
 import {ILendingProvider} from "../../interfaces/ILendingProvider.sol";
 
 contract YieldVaultFactory is VaultDeployer {
-  uint256 public nonce;
+  uint256 private nonce;
 
   /**
    * @notice Constructor of a new {YieldVaultFactory}.
@@ -26,7 +26,7 @@ contract YieldVaultFactory is VaultDeployer {
    * @dev Requirements:
    * - Must comply with {VaultDeployer} requirements.
    */
-  constructor(address chief_) VaultDeployer(chief_) {}
+  constructor(address chief_) VaultDeployer(chief_) payable {}
 
   /**
    * @notice Deploys a new {YieldVault}.
@@ -36,7 +36,7 @@ contract YieldVaultFactory is VaultDeployer {
    * @dev Requirements:
    * - Must be called from {Chief} contract only.
    */
-  function deployVault(bytes memory deployData) external onlyChief returns (address vault) {
+  function deployVault(bytes calldata deployData) external payable onlyChief returns (address vault) {
     (address asset, ILendingProvider[] memory providers) =
       abi.decode(deployData, (address, ILendingProvider[]));
 
@@ -48,7 +48,9 @@ contract YieldVaultFactory is VaultDeployer {
     string memory symbol = string(abi.encodePacked("fyv", assetSymbol));
 
     bytes32 salt = keccak256(abi.encode(deployData, nonce));
-    nonce++;
+    unchecked {
+      ++nonce;
+    }
     vault = address(new YieldVault{salt: salt}(asset, chief, name, symbol, providers));
     _registerVault(vault, asset, salt);
   }

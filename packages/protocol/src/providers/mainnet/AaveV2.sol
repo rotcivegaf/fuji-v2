@@ -23,7 +23,7 @@ contract AaveV2 is ILendingProvider {
   }
 
   /// @inheritdoc ILendingProvider
-  function providerName() public pure override returns (string memory) {
+  function providerName() external pure override returns (string memory) {
     return "Aave_V2";
   }
 

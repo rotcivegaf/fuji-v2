@@ -47,6 +47,7 @@ contract YieldVault is BaseVault {
     string memory symbol_,
     ILendingProvider[] memory providers_
   )
+    payable
     BaseVault(asset_, chief_, name_, symbol_)
   {
     _setProviders(providers_);
@@ -56,7 +57,7 @@ contract YieldVault is BaseVault {
   receive() external payable {}
 
   /*///////////////////////////////
-      Debt management overrides 
+      Debt management overrides
   ///////////////////////////////*/
 
   /// @inheritdoc BaseVault
@@ -173,6 +174,7 @@ contract YieldVault is BaseVault {
     bool setToAsActiveProvider
   )
     external
+    payable
     hasRole(msg.sender, REBALANCER_ROLE)
     returns (bool)
   {
@@ -202,17 +204,17 @@ contract YieldVault is BaseVault {
   ////////////////////*/
 
   /// @inheritdoc IVault
-  function getHealthFactor(address) public pure returns (uint256) {
+  function getHealthFactor(address) external pure returns (uint256) {
     revert YieldVault__notApplicable();
   }
 
   /// @inheritdoc IVault
-  function getLiquidationFactor(address) public pure returns (uint256) {
+  function getLiquidationFactor(address) external pure returns (uint256) {
     revert YieldVault__notApplicable();
   }
 
   /// @inheritdoc IVault
-  function liquidate(address, address) public pure returns (uint256) {
+  function liquidate(address, address) external payable returns (uint256) {
     revert YieldVault__notApplicable();
   }
 
@@ -223,12 +225,15 @@ contract YieldVault is BaseVault {
   /// @inheritdoc BaseVault
   function _setProviders(ILendingProvider[] memory providers) internal override {
     uint256 len = providers.length;
-    for (uint256 i = 0; i < len;) {
-      if (address(providers[i]) == address(0)) {
+    for (uint256 i; i < len;) {
+      ILendingProvider provider = providers[i];
+      if (address(provider) == address(0)) {
         revert BaseVault__setter_invalidInput();
       }
-      IERC20(asset()).approve(
-        providers[i].approvedOperator(asset(), asset(), debtAsset()), type(uint256).max
+      address asset_ = asset();
+      address debtAsset_ = debtAsset();
+      IERC20(asset_).approve(
+        provider.approvedOperator(asset_, asset_, debtAsset_), type(uint256).max
       );
       unchecked {
         ++i;

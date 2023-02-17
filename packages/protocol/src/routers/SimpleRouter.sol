@@ -19,16 +19,17 @@ contract SimpleRouter is BaseRouter {
   /// @dev Custom Errors
   error SimpleRouter__noCrossTransfersImplemented();
 
-  constructor(IWETH9 weth, IChief chief) BaseRouter(weth, chief) {}
+  constructor(IWETH9 weth, IChief chief) payable BaseRouter(weth, chief) {}
 
   /// @inheritdoc BaseRouter
-  function _crossTransfer(bytes memory params) internal pure override {
+  function _crossTransfer(address beneficiary, bytes calldata params) internal pure override  returns(address) {
+    beneficiary;
     params;
     revert SimpleRouter__noCrossTransfersImplemented();
   }
 
   /// @inheritdoc BaseRouter
-  function _crossTransferWithCalldata(bytes memory params) internal pure override {
+  function _crossTransferWithCalldata(bytes calldata params) internal pure override {
     params;
     revert SimpleRouter__noCrossTransfersImplemented();
   }

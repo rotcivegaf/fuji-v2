@@ -43,12 +43,12 @@ interface IRouter {
    * @param token the address of the ERC-20 token to sweep
    * @param receiver the address that will receive the swept funds
    */
-  function sweepToken(ERC20 token, address receiver) external;
+  function sweepToken(ERC20 token, address receiver) external payable;
 
   /**
    * @notice Sweeps accidental ETH transfers to this contract.
    *
    * @param receiver the address that will receive the swept funds
    */
-  function sweepETH(address receiver) external;
+  function sweepETH(address receiver) external payable;
 }

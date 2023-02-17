@@ -58,7 +58,7 @@ interface IPausableVault {
    * @dev Requirements:
    * - Must be implemented in child contract with access restriction.
    */
-  function pauseForceAll() external;
+  function pauseForceAll() external payable;
 
   /**
    * @notice Force unpause state for all `VaultActions`.
@@ -66,7 +66,7 @@ interface IPausableVault {
    * @dev Requirements:
    * - Must be implemented in child contract with access restriction.
    */
-  function unpauseForceAll() external;
+  function unpauseForceAll() external payable;
 
   /**
    * @notice Set paused state for `action` of this vault.
@@ -77,7 +77,7 @@ interface IPausableVault {
    * - The `action` in contract must not be unpaused.
    * - Must be implemented in child contract with access restriction.
    */
-  function pause(VaultActions action) external;
+  function pause(VaultActions action) external payable;
 
   /**
    * @notice Set unpause state for `action` of this vault.
@@ -88,5 +88,5 @@ interface IPausableVault {
    * - The `action` in contract must be paused.
    * - Must be implemented in child contract with access restriction.
    */
-  function unpause(VaultActions action) external;
+  function unpause(VaultActions action) external payable;
 }

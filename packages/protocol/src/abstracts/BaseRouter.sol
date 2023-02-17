@@ -22,8 +22,6 @@ import {SystemAccessControl} from "../access/SystemAccessControl.sol";
 import {IWETH9} from "../abstracts/WETH9.sol";
 
 abstract contract BaseRouter is SystemAccessControl, IRouter {
-  using SafeERC20 for ERC20;
-
   /**
    * @dev Contains an address of an ERC-20 and the balance the router holds
    * at a given moment of the transaction (ref. `_tokensToCheck`).
@@ -67,24 +65,17 @@ abstract contract BaseRouter is SystemAccessControl, IRouter {
   Snapshot[] internal _tokensToCheck;
 
   /**
-   * @dev Operations in the bundle should "benefit" or be executed
-   * on behalf of this account. These are receivers on DEPOSIT and PAYBACK
-   * or owners on WITHDRAW and BORROW.
-   */
-  address private _beneficiary;
-
-  /**
    * @notice Constructor of a new {BaseRouter}.
    *
    * @param weth wrapped native token of this chain
    * @param chief contract
    */
-  constructor(IWETH9 weth, IChief chief) SystemAccessControl(address(chief)) {
+  constructor(IWETH9 weth, IChief chief) payable SystemAccessControl(address(chief)) {
     WETH9 = weth;
   }
 
   /// @inheritdoc IRouter
-  function xBundle(Action[] memory actions, bytes[] memory args) external payable override {
+  function xBundle(Action[] calldata actions, bytes[] calldata args) external payable override {
     _bundleInternal(actions, args);
   }
 
@@ -96,20 +87,18 @@ abstract contract BaseRouter is SystemAccessControl, IRouter {
    *
    * @dev The authorization is to be implemented on the bridge-specific contract.
    */
-  function allowCaller(address caller, bool allowed) external onlyTimelock {
+  function allowCaller(address caller, bool allowed) external payable onlyTimelock {
     _allowCaller(caller, allowed);
   }
 
   /// @inheritdoc IRouter
-  function sweepToken(ERC20 token, address receiver) external onlyHouseKeeper {
-    uint256 balance = token.balanceOf(address(this));
-    token.transfer(receiver, balance);
+  function sweepToken(ERC20 token, address receiver) external payable onlyHouseKeeper {
+    token.transfer(receiver, token.balanceOf(address(this)));
   }
 
   /// @inheritdoc IRouter
-  function sweepETH(address receiver) external onlyHouseKeeper {
-    uint256 balance = address(this).balance;
-    _safeTransferETH(receiver, balance);
+  function sweepETH(address receiver) external payable onlyHouseKeeper {
+    _safeTransferETH(receiver, address(this).balance);
   }
 
   /**
@@ -123,58 +112,61 @@ abstract contract BaseRouter is SystemAccessControl, IRouter {
    * @param actions an array of actions that will be executed in a row
    * @param args an array of encoded inputs needed to execute each action
    */
-  function _bundleInternal(Action[] memory actions, bytes[] memory args) internal {
-    if (actions.length != args.length) {
+  function _bundleInternal(Action[] calldata actions, bytes[] calldata args) internal {
+    uint256 len = actions.length;
+    if (len != args.length) {
       revert BaseRouter__bundleInternal_paramsMismatch();
     }
 
     uint256 nativeBalance = address(this).balance - msg.value;
+    address beneficiary;
 
-    uint256 len = actions.length;
-    for (uint256 i = 0; i < len;) {
-      if (actions[i] == Action.Deposit) {
+    for (uint256 i; i < len;) {
+      Action action = actions[i];
+
+      if (action == Action.Deposit) {
         // DEPOSIT
         (IVault vault, uint256 amount, address receiver, address sender) =
           abi.decode(args[i], (IVault, uint256, address, address));
 
         address token = vault.asset();
-        _checkBeneficiary(receiver);
+        beneficiary = _checkBeneficiary(beneficiary, receiver);
         _addTokenToList(token);
         _safePullTokenFrom(token, sender, receiver, amount);
         _safeApprove(token, address(vault), amount);
 
         vault.deposit(amount, receiver);
-      } else if (actions[i] == Action.Withdraw) {
+      } else if (action == Action.Withdraw) {
         // WITHDRAW
         (IVault vault, uint256 amount, address receiver, address owner) =
           abi.decode(args[i], (IVault, uint256, address, address));
 
-        _checkBeneficiary(owner);
+        beneficiary = _checkBeneficiary(beneficiary, owner);
         _addTokenToList(vault.asset());
 
         vault.withdraw(amount, receiver, owner);
-      } else if (actions[i] == Action.Borrow) {
+      } else if (action == Action.Borrow) {
         // BORROW
         (IVault vault, uint256 amount, address receiver, address owner) =
           abi.decode(args[i], (IVault, uint256, address, address));
 
-        _checkBeneficiary(owner);
+        beneficiary = _checkBeneficiary(beneficiary, owner);
         _addTokenToList(vault.debtAsset());
 
         vault.borrow(amount, receiver, owner);
-      } else if (actions[i] == Action.Payback) {
+      } else if (action == Action.Payback) {
         // PAYBACK
         (IVault vault, uint256 amount, address receiver, address sender) =
           abi.decode(args[i], (IVault, uint256, address, address));
 
         address token = vault.debtAsset();
-        _checkBeneficiary(receiver);
+        beneficiary = _checkBeneficiary(beneficiary, receiver);
         _addTokenToList(token);
         _safePullTokenFrom(token, sender, receiver, amount);
         _safeApprove(token, address(vault), amount);
 
         vault.payback(amount, receiver);
-      } else if (actions[i] == Action.PermitWithdraw) {
+      } else if (action == Action.PermitWithdraw) {
         // PERMIT ASSETS
         (
           IVaultPermissions vault,
@@ -189,7 +181,7 @@ abstract contract BaseRouter is SystemAccessControl, IRouter {
           args[i], (IVaultPermissions, address, address, uint256, uint256, uint8, bytes32, bytes32)
         );
         vault.permitWithdraw(owner, receiver, amount, deadline, v, r, s);
-      } else if (actions[i] == Action.PermitBorrow) {
+      } else if (action == Action.PermitBorrow) {
         // PERMIT BORROW
         (
           IVaultPermissions vault,
@@ -205,15 +197,15 @@ abstract contract BaseRouter is SystemAccessControl, IRouter {
         );
 
         vault.permitBorrow(owner, receiver, amount, deadline, v, r, s);
-      } else if (actions[i] == Action.XTransfer) {
+      } else if (action == Action.XTransfer) {
         // SIMPLE BRIDGE TRANSFER
 
-        _crossTransfer(args[i]);
-      } else if (actions[i] == Action.XTransferWithCall) {
+        beneficiary = _crossTransfer(beneficiary, args[i]);
+      } else if (action == Action.XTransferWithCall) {
         // BRIDGE WITH CALLDATA
 
         _crossTransferWithCalldata(args[i]);
-      } else if (actions[i] == Action.Swap) {
+      } else if (action == Action.Swap) {
         // SWAP
         (
           ISwapper swapper,
@@ -233,7 +225,7 @@ abstract contract BaseRouter is SystemAccessControl, IRouter {
         _safeApprove(assetIn, address(swapper), amountIn);
 
         swapper.swap(assetIn, assetOut, amountIn, amountOut, receiver, sweeper, minSweepOut);
-      } else if (actions[i] == Action.Flashloan) {
+      } else if (action == Action.Flashloan) {
         // FLASHLOAN
 
         // Decode params.
@@ -252,7 +244,7 @@ abstract contract BaseRouter is SystemAccessControl, IRouter {
 
         // Call Flasher.
         flasher.initiateFlashloan(asset, flashAmount, requestor, requestorCalldata);
-      } else if (actions[i] == Action.DepositETH) {
+      } else if (action == Action.DepositETH) {
         uint256 amount = abi.decode(args[i], (uint256));
 
         if (amount != msg.value) {
@@ -261,9 +253,9 @@ abstract contract BaseRouter is SystemAccessControl, IRouter {
         _addTokenToList(address(WETH9));
 
         WETH9.deposit{value: msg.value}();
-      } else if (actions[i] == Action.WithdrawETH) {
+      } else { // action == Action.WithdrawETH
         (uint256 amount, address receiver) = abi.decode(args[i], (uint256, address));
-        _checkBeneficiary(receiver);
+        beneficiary = _checkBeneficiary(beneficiary, receiver);
         _addTokenToList(address(WETH9));
 
         WETH9.withdraw(amount);
@@ -274,8 +266,7 @@ abstract contract BaseRouter is SystemAccessControl, IRouter {
         ++i;
       }
     }
-    _checkNoBalanceChange(_tokensToCheck, nativeBalance);
-    _beneficiary = address(0);
+    _checkNoBalanceChange(nativeBalance);
   }
 
   /**
@@ -285,7 +276,7 @@ abstract contract BaseRouter is SystemAccessControl, IRouter {
    * @param amount amount to be transferred
    */
   function _safeTransferETH(address receiver, uint256 amount) internal {
-    (bool success,) = receiver.call{value: amount}(new bytes(0));
+    (bool success,) = receiver.call{value: amount}("");
     if (!success) {
       revert BaseRouter__safeTransferETH_transferFailed();
     }
@@ -293,7 +284,7 @@ abstract contract BaseRouter is SystemAccessControl, IRouter {
 
   /**
    * @dev Helper function to pull ERC-20 token from a sender address after some checks.
-   * The checks are needed because when we bundle mulptiple actions
+   * The checks are needed because when we bundle multiple actions
    * it can happen the router already holds the assets in question;
    * for. example when we withdraw from a vault and deposit to another one.
    *
@@ -311,7 +302,7 @@ abstract contract BaseRouter is SystemAccessControl, IRouter {
     internal
   {
     if (sender != address(this) && (sender == owner || sender == msg.sender)) {
-      ERC20(token).safeTransferFrom(sender, address(this), amount);
+      SafeERC20.safeTransferFrom(ERC20(token), sender, address(this), amount);
     }
   }
 
@@ -323,7 +314,7 @@ abstract contract BaseRouter is SystemAccessControl, IRouter {
    * @param amount amount to be approved
    */
   function _safeApprove(address token, address to, uint256 amount) internal {
-    ERC20(token).safeApprove(to, amount);
+    SafeERC20.safeApprove(ERC20(token), to, amount);
   }
 
   /**
@@ -347,13 +338,13 @@ abstract contract BaseRouter is SystemAccessControl, IRouter {
    * @dev Function to be implemented on the bridge-specific contract
    * used to transfer funds WITHOUT calldata to a destination chain.
    */
-  function _crossTransfer(bytes memory) internal virtual;
+  function _crossTransfer(address beneficiary, bytes calldata) internal virtual returns(address);
 
   /**
    * @dev Function to be implemented on the bridge-specific contract
    * used to transfer funds WITH calldata to a destination chain.
    */
-  function _crossTransferWithCalldata(bytes memory) internal virtual;
+  function _crossTransferWithCalldata(bytes calldata) internal virtual;
 
   /**
    * @dev Returns "true" if token has already been added to `_tokensToCheck`.
@@ -362,9 +353,9 @@ abstract contract BaseRouter is SystemAccessControl, IRouter {
    */
   function _isInTokenList(address token) private view returns (bool value) {
     uint256 len = _tokensToCheck.length;
-    for (uint256 i = 0; i < len;) {
+    for (uint256 i; i < len;) {
       if (token == _tokensToCheck[i].token) {
-        value = true;
+        return true;
       }
       unchecked {
         ++i;
@@ -392,14 +383,14 @@ abstract contract BaseRouter is SystemAccessControl, IRouter {
    * - Must be called in `_bundleInternal()` at the end of all executed `actions`.
    * - Must clear `_tokensToCheck` from storage at the end of checks.
    *
-   * @param tokensToCheck array of 'Snapshot' elements
    * @param nativeBalance the stored balance of ETH
    */
-  function _checkNoBalanceChange(Snapshot[] memory tokensToCheck, uint256 nativeBalance) private {
-    uint256 len = tokensToCheck.length;
-    for (uint256 i = 0; i < len;) {
-      uint256 previousBalance = tokensToCheck[i].balance;
-      uint256 currentBalance = IERC20(tokensToCheck[i].token).balanceOf(address(this));
+  function _checkNoBalanceChange(uint256 nativeBalance) private {
+    uint256 len = _tokensToCheck.length;
+    for (uint256 i; i < len;) {
+      Snapshot memory snapshot = _tokensToCheck[i];
+      uint256 previousBalance = snapshot.balance;
+      uint256 currentBalance = IERC20(snapshot.token).balanceOf(address(this));
 
       if (currentBalance != previousBalance) {
         revert BaseRouter__bundleInternal_noBalanceChange();
@@ -424,13 +415,14 @@ abstract contract BaseRouter is SystemAccessControl, IRouter {
    *
    * @param user address to verify is the beneficiary
    */
-  function _checkBeneficiary(address user) internal {
-    if (_beneficiary == address(0)) {
-      _beneficiary = user;
+  function _checkBeneficiary(address beneficiary, address user) internal returns(address){
+    if (beneficiary == address(0)) {
+      return user;
     } else {
-      if (_beneficiary != user) {
+      if (beneficiary != user) {
         revert BaseRouter__bundleInternal_notBeneficiary();
       }
+      return user;
     }
   }
 

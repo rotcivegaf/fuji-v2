@@ -26,7 +26,7 @@ contract Chief is CoreRoles, AccessControl, IChief {
   using Address for address;
 
   /**
-   * @dev Emitted when the deployements of new vaults is alllowed/disallowed.
+   * @dev Emitted when the deployments of new vaults is allowed/disallowed.
    *
    * @param allowed "true" to allow, "false" to disallow
    */
@@ -50,7 +50,7 @@ contract Chief is CoreRoles, AccessControl, IChief {
   event SetVaults(address[] previousVaults, address[] newVaults);
 
   /**
-   * @dev Emitted when a new flasher is alllowed/disallowed.
+   * @dev Emitted when a new flasher is allowed/disallowed.
    *
    * @param flasher address of the flasher
    * @param allowed "true" to allow, "false" to disallow
@@ -58,7 +58,7 @@ contract Chief is CoreRoles, AccessControl, IChief {
   event AllowFlasher(address indexed flasher, bool allowed);
 
   /**
-   * @dev Emitted when a new factory is alllowed/disallowed.
+   * @dev Emitted when a new factory is allowed/disallowed.
    *
    * @param factory address of the factory
    * @param allowed "true" to allow, "false" to disallow
@@ -115,7 +115,7 @@ contract Chief is CoreRoles, AccessControl, IChief {
     _;
   }
 
-  constructor(bool deployTimelock, bool deployAddrMapper) {
+  constructor(bool deployTimelock, bool deployAddrMapper) payable {
     _grantRole(DEPLOYER_ROLE, msg.sender);
     _grantRole(HOUSE_KEEPER_ROLE, msg.sender);
     _grantRole(PAUSER_ROLE, address(this));
@@ -164,7 +164,7 @@ contract Chief is CoreRoles, AccessControl, IChief {
    * Requirements:
    *  - Must be called from a timelock.
    */
-  function setVaults(address[] memory vaults) external onlyTimelock {
+  function setVaults(address[] calldata vaults) external onlyTimelock {
     address[] memory previous = _vaults;
     delete _vaults;
     _vaults = vaults;
@@ -188,7 +188,7 @@ contract Chief is CoreRoles, AccessControl, IChief {
   }
 
   /**
-   * @notice Deploys a new vault through a factory, attribute an intial rating and
+   * @notice Deploys a new vault through a factory, attribute an initial rating and
    * store new vault's address in `_vaults`.
    *
    * @param factory allowed vault factory contract
@@ -293,8 +293,7 @@ contract Chief is CoreRoles, AccessControl, IChief {
    *  - Must be restricted to `PAUSER_ROLE`.
    */
   function pauseForceAllVaults() external onlyRole(PAUSER_ROLE) {
-    bytes memory callData = abi.encodeWithSelector(IPausableVault.pauseForceAll.selector);
-    _changePauseState(callData);
+    _changePauseState(abi.encodeWithSelector(IPausableVault.pauseForceAll.selector));
   }
 
   /**
@@ -304,8 +303,7 @@ contract Chief is CoreRoles, AccessControl, IChief {
    *  - Must be restricted to `UNPAUSER_ROLE`.
    */
   function unpauseForceAllVaults() external onlyRole(UNPAUSER_ROLE) {
-    bytes memory callData = abi.encodeWithSelector(IPausableVault.unpauseForceAll.selector);
-    _changePauseState(callData);
+    _changePauseState(abi.encodeWithSelector(IPausableVault.unpauseForceAll.selector));
   }
 
   /**
@@ -321,8 +319,7 @@ contract Chief is CoreRoles, AccessControl, IChief {
     external
     onlyRole(PAUSER_ROLE)
   {
-    bytes memory callData = abi.encodeWithSelector(IPausableVault.pause.selector, action);
-    _changePauseState(callData);
+    _changePauseState(abi.encodeWithSelector(IPausableVault.pause.selector, action));
   }
 
   /**
@@ -334,12 +331,11 @@ contract Chief is CoreRoles, AccessControl, IChief {
    *  - `action` in all vaults' must be in paused state; otherwise revert.
    *  - Must be restricted to `PAUSER_ROLE`.
    */
-  function upauseActionInAllVaults(IPausableVault.VaultActions action)
+  function unpauseActionInAllVaults(IPausableVault.VaultActions action)
     external
     onlyRole(UNPAUSER_ROLE)
   {
-    bytes memory callData = abi.encodeWithSelector(IPausableVault.unpause.selector, uint8(action));
-    _changePauseState(callData);
+    _changePauseState(abi.encodeWithSelector(IPausableVault.unpause.selector, uint8(action)));
   }
 
   /**
@@ -405,9 +401,10 @@ contract Chief is CoreRoles, AccessControl, IChief {
     _checkInputIsNotZeroAddress(vault);
     uint256 len = _vaults.length;
     bool isInVaultList;
-    for (uint256 i = 0; i < len;) {
+    for (uint256 i; i < len;) {
       if (vault == _vaults[i]) {
         isInVaultList = true;
+        break;
       }
       unchecked {
         ++i;

@@ -37,15 +37,21 @@ contract FujiOracle is IFujiOracle, SystemAccessControl {
     address[] memory priceFeeds,
     address chief_
   )
+    payable
     SystemAccessControl(chief_)
   {
-    if (assets.length != priceFeeds.length) {
+    uint256 aLength = assets.length;
+    if (aLength != priceFeeds.length) {
       revert FujiOracle__lengthMismatch();
     }
 
-    for (uint256 i = 0; i < assets.length; i++) {
-      _validatePriceFeedDecimals(priceFeeds[i]);
-      usdPriceFeeds[assets[i]] = priceFeeds[i];
+    for (uint256 i; i < aLength;) {
+      address priceFeed = priceFeeds[i];
+      _validatePriceFeedDecimals(priceFeed);
+      usdPriceFeeds[assets[i]] = priceFeed;
+      unchecked {
+        ++i;
+      }
     }
   }
 
@@ -59,7 +65,7 @@ contract FujiOracle is IFujiOracle, SystemAccessControl {
    * @param asset address
    * @param priceFeed Chainlink contract address
    */
-  function setPriceFeed(address asset, address priceFeed) public onlyTimelock {
+  function setPriceFeed(address asset, address priceFeed) external payable onlyTimelock {
     if (priceFeed == address(0)) {
       revert FujiOracle__noZeroAddress();
     }

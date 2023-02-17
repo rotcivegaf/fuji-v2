@@ -72,7 +72,7 @@ contract CompoundV3 is ILendingProvider {
   /// @inheritdoc ILendingProvider
   function payback(uint256 amount, IVault vault) external returns (bool success) {
     (ICompoundV3 cMarketV3,, address debtAsset) = _getMarketAndAssets(vault);
-    // From Coment docs: 'supply' the base asset to repay an open borrow of the base asset.
+    // From Comment docs: 'supply' the base asset to repay an open borrow of the base asset.
     cMarketV3.supply(debtAsset, amount);
     success = true;
   }
@@ -88,7 +88,7 @@ contract CompoundV3 is ILendingProvider {
       // 31536000 seconds in a `year` = 60 * 60 * 24 * 365.
       rate = ratePerSecond * 31536000;
     } else {
-      rate = 0;
+      return 0;
     }
   }
 

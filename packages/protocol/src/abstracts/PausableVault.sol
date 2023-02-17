@@ -39,21 +39,21 @@ abstract contract PausableVault is IPausableVault {
   }
 
   /// @inheritdoc IPausableVault
-  function paused(VaultActions action) public view virtual returns (bool) {
+  function paused(VaultActions action) external view virtual returns (bool) {
     return _actionsPaused[action];
   }
 
   /// @inheritdoc IPausableVault
-  function pauseForceAll() external virtual override;
+  function pauseForceAll() external payable virtual override;
 
   /// @inheritdoc IPausableVault
-  function unpauseForceAll() external virtual override;
+  function unpauseForceAll() external payable virtual override;
 
   /// @inheritdoc IPausableVault
-  function pause(VaultActions action) external virtual override;
+  function pause(VaultActions action) external payable virtual override;
 
   /// @inheritdoc IPausableVault
-  function unpause(VaultActions action) external virtual override;
+  function unpause(VaultActions action) external payable virtual override;
 
   /**
    * @dev Throws if the `action` in contract is paused.

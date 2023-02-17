@@ -17,11 +17,8 @@ pragma solidity 0.8.15;
 import {IVaultPermissions} from "../interfaces/IVaultPermissions.sol";
 import {EIP712} from "../abstracts/EIP712.sol";
 import {ECDSA} from "openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
-import {Counters} from "openzeppelin-contracts/contracts/utils/Counters.sol";
 
 contract VaultPermissions is IVaultPermissions, EIP712 {
-  using Counters for Counters.Counter;
-
   /// @dev Custom Errors
   error VaultPermissions__zeroAddress();
   error VaultPermissions__expiredDeadline();
@@ -34,7 +31,7 @@ contract VaultPermissions is IVaultPermissions, EIP712 {
   mapping(address => mapping(address => mapping(address => uint256))) internal _withdrawAllowance;
   mapping(address => mapping(address => mapping(address => uint256))) internal _borrowAllowance;
 
-  mapping(address => Counters.Counter) private _nonces;
+  mapping(address => uint256) private _nonces;
 
   // solhint-disable-next-line var-name-mixedcase
   bytes32 private constant PERMIT_WITHDRAW_TYPEHASH = keccak256(
@@ -59,7 +56,7 @@ contract VaultPermissions is IVaultPermissions, EIP712 {
    * - Must initialize the {EIP712} domain separator using the `name` parameter as used
    *   in {BaseVault}. and setting `version` to "1".
    */
-  constructor(string memory name_) EIP712(name_, "1") {}
+  constructor(string memory name_) EIP712(name_, "1") payable {}
 
   /// @inheritdoc IVaultPermissions
   function withdrawAllowance(
@@ -100,9 +97,8 @@ contract VaultPermissions is IVaultPermissions, EIP712 {
     override
     returns (bool)
   {
-    address owner = msg.sender;
     _setWithdrawAllowance(
-      owner, operator, receiver, _withdrawAllowance[owner][operator][receiver] + byAmount
+      msg.sender, operator, receiver, _withdrawAllowance[msg.sender][operator][receiver] + byAmount
     );
     return true;
   }
@@ -117,13 +113,12 @@ contract VaultPermissions is IVaultPermissions, EIP712 {
     override
     returns (bool)
   {
-    address owner = msg.sender;
-    uint256 currentAllowance = _withdrawAllowance[owner][operator][receiver];
+    uint256 currentAllowance = _withdrawAllowance[msg.sender][operator][receiver];
     if (byAmount > currentAllowance) {
       revert VaultPermissions__allowanceBelowZero();
     }
     unchecked {
-      _setWithdrawAllowance(owner, operator, receiver, currentAllowance - byAmount);
+      _setWithdrawAllowance(msg.sender, operator, receiver, currentAllowance - byAmount);
     }
     return true;
   }
@@ -139,9 +134,8 @@ contract VaultPermissions is IVaultPermissions, EIP712 {
     override
     returns (bool)
   {
-    address owner = msg.sender;
     _setBorrowAllowance(
-      owner, operator, receiver, _borrowAllowance[owner][operator][receiver] + byAmount
+      msg.sender, operator, receiver, _borrowAllowance[msg.sender][operator][receiver] + byAmount
     );
     return true;
   }
@@ -157,20 +151,19 @@ contract VaultPermissions is IVaultPermissions, EIP712 {
     override
     returns (bool)
   {
-    address owner = msg.sender;
-    uint256 currentAllowance = _borrowAllowance[owner][operator][receiver];
+    uint256 currentAllowance = _borrowAllowance[msg.sender][operator][receiver];
     if (byAmount > currentAllowance) {
       revert VaultPermissions__allowanceBelowZero();
     }
     unchecked {
-      _setBorrowAllowance(owner, operator, receiver, currentAllowance - byAmount);
+      _setBorrowAllowance(msg.sender, operator, receiver, currentAllowance - byAmount);
     }
     return true;
   }
 
   /// @inheritdoc IVaultPermissions
-  function nonces(address owner) public view override returns (uint256) {
-    return _nonces[owner].current();
+  function nonces(address owner) external view override returns (uint256) {
+    return _nonces[owner];
   }
 
   /// @inheritdoc IVaultPermissions
@@ -189,26 +182,32 @@ contract VaultPermissions is IVaultPermissions, EIP712 {
     bytes32 r,
     bytes32 s
   )
-    public
+    external
     override
   {
     _checkDeadline(deadline);
-    address operator = msg.sender;
-    bytes32 structHash = keccak256(
-      abi.encode(
-        PERMIT_WITHDRAW_TYPEHASH,
-        block.chainid,
+    unchecked {
+      _checkSigner(
+        keccak256(
+          abi.encode(
+            PERMIT_WITHDRAW_TYPEHASH,
+            block.chainid,
+            owner,
+            msg.sender,
+            receiver,
+            amount,
+            _nonces[owner]++,
+            deadline
+          )
+        ),
         owner,
-        operator,
-        receiver,
-        amount,
-        _useNonce(owner),
-        deadline
-      )
-    );
-    _checkSigner(structHash, owner, v, r, s);
+        v,
+        r,
+        s
+      );
+    }
 
-    _setWithdrawAllowance(owner, operator, receiver, amount);
+    _setWithdrawAllowance(owner, msg.sender, receiver, amount);
   }
 
   /// @inheritdoc IVaultPermissions
@@ -226,22 +225,28 @@ contract VaultPermissions is IVaultPermissions, EIP712 {
     override
   {
     _checkDeadline(deadline);
-    address operator = msg.sender;
-    bytes32 structHash = keccak256(
-      abi.encode(
-        PERMIT_BORROW_TYPEHASH,
-        block.chainid,
+    unchecked {
+      _checkSigner(
+        keccak256(
+          abi.encode(
+            PERMIT_BORROW_TYPEHASH,
+            block.chainid,
+            owner,
+            msg.sender,
+            receiver,
+            amount,
+            _nonces[owner]++,
+            deadline
+          )
+        ),
         owner,
-        operator,
-        receiver,
-        amount,
-        _useNonce(owner),
-        deadline
-      )
-    );
-    _checkSigner(structHash, owner, v, r, s);
+        v,
+        r,
+        s
+      );
+    }
 
-    _setBorrowAllowance(owner, operator, receiver, amount);
+    _setBorrowAllowance(owner, msg.sender, receiver, amount);
   }
 
   /// Internal Functions
@@ -364,18 +369,6 @@ contract VaultPermissions is IVaultPermissions, EIP712 {
   }
 
   /**
-   * @dev "Consume a nonce": return the current amount and increment.
-   * _Available since v4.1._
-   *
-   * @param owner address who uses a permit
-   */
-  function _useNonce(address owner) internal returns (uint256 current) {
-    Counters.Counter storage nonce = _nonces[owner];
-    current = nonce.current();
-    nonce.increment();
-  }
-
-  /**
    * @dev Reverts if block.timestamp is expired according to `deadline`.
    *
    * @param deadline timestamp to check
@@ -392,7 +385,7 @@ contract VaultPermissions is IVaultPermissions, EIP712 {
    * @param structHash of data
    * @param presumedOwner address to check
    * @param v signature value
-   * @param r signautre value
+   * @param r signature value
    * @param s signature value
    */
   function _checkSigner(
@@ -405,8 +398,7 @@ contract VaultPermissions is IVaultPermissions, EIP712 {
     internal
     view
   {
-    bytes32 digest = _hashTypedDataV4(structHash);
-    address signer = ECDSA.recover(digest, v, r, s);
+    address signer = ECDSA.recover(_hashTypedDataV4(structHash), v, r, s);
     if (signer != presumedOwner) {
       revert VaultPermissions__invalidSignature();
     }

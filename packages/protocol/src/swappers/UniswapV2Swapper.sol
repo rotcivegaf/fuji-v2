@@ -23,7 +23,7 @@ contract UniswapV2Swapper is ISwapper {
   error UniswapV2Swapper__swap_slippageTooHigh();
   error UniswapV2Swapper__swap_notEnoughAmountIn();
 
-  IUniswapV2Router01 public uniswapRouter;
+  IUniswapV2Router01 public immutable uniswapRouter;
 
   IWETH9 public immutable WETH9;
 
@@ -34,7 +34,7 @@ contract UniswapV2Swapper is ISwapper {
    * @param uniswapRouter_ contract address
    */
 
-  constructor(IWETH9 weth, IUniswapV2Router01 uniswapRouter_) {
+  constructor(IWETH9 weth, IUniswapV2Router01 uniswapRouter_) payable {
     uniswapRouter = uniswapRouter_;
     WETH9 = weth;
   }
@@ -72,7 +72,10 @@ contract UniswapV2Swapper is ISwapper {
       block.timestamp
     );
 
-    uint256 leftover = amountIn - computedAmountIn;
+    uint256 leftover;
+    unchecked {
+      leftover = amountIn - computedAmountIn;
+    }
     if (minSweepOut > 0 && minSweepOut > leftover) {
       revert UniswapV2Swapper__swap_slippageTooHigh();
     }
@@ -102,7 +105,7 @@ contract UniswapV2Swapper is ISwapper {
     address assetOut,
     uint256 amountIn
   )
-    public
+    external
     view
     override
     returns (uint256 amountOut)

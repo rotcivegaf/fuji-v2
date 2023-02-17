@@ -19,7 +19,7 @@ import {IEulerMarkets} from "../interfaces/euler/IEulerMarkets.sol";
 contract FlasherEuler is BaseFlasher, IFlashloan {
   address public constant EULER_MARKETS = 0x3520d5a913427E6F0D6A83E07ccD4A4da316e4d3;
 
-  constructor(address euler) BaseFlasher("FlasherEuler", euler) {}
+  constructor(address euler) payable BaseFlasher("FlasherEuler", euler) {}
 
   /// @inheritdoc BaseFlasher
   function initiateFlashloan(

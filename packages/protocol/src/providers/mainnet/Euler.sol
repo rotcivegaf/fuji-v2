@@ -25,7 +25,7 @@ contract Euler is ILendingProvider {
   }
 
   /// @inheritdoc ILendingProvider
-  function providerName() public pure override returns (string memory) {
+  function providerName() external pure override returns (string memory) {
     return "Euler";
   }
 

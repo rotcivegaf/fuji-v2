@@ -10,7 +10,7 @@ pragma solidity 0.8.15;
  * The BorrowingVault contract is quite big in size. Creating new instances of it with
  * `new BorrowingVault()` makes the factory contract exceed the 24K limit. That's why
  * we use an approach found at Fraxlend. We split and store the BorrowingVault bytecode
- * in two different locations and when used they get concatanated and deployed by using assembly.
+ * in two different locations and when used they get concatenated and deployed by using assembly.
  * ref: https://github.com/FraxFinance/fraxlend/blob/main/src/contracts/FraxlendPairDeployer.sol
  */
 
@@ -34,7 +34,7 @@ contract BorrowingVaultFactory is VaultDeployer {
     bytes32 salt
   );
 
-  uint256 public nonce;
+  uint256 private nonce;
 
   address private _creationAddress1;
   address private _creationAddress2;
@@ -47,7 +47,7 @@ contract BorrowingVaultFactory is VaultDeployer {
    * @dev Requirements:
    * - Must comply with {VaultDeployer} requirements.
    */
-  constructor(address chief_) VaultDeployer(chief_) {}
+  constructor(address chief_) payable VaultDeployer(chief_) {}
 
   /**
    * @notice Deploys a new {BorrowingVault}.
@@ -57,7 +57,7 @@ contract BorrowingVaultFactory is VaultDeployer {
    * @dev Requirements:
    * - Must be called from {Chief} contract only.
    */
-  function deployVault(bytes memory deployData) external onlyChief returns (address vault) {
+  function deployVault(bytes calldata deployData) external payable onlyChief returns (address vault) {
     (address asset, address debtAsset, address oracle, ILendingProvider[] memory providers) =
       abi.decode(deployData, (address, address, address, ILendingProvider[]));
 
@@ -71,7 +71,9 @@ contract BorrowingVaultFactory is VaultDeployer {
     string memory symbol = string(abi.encodePacked("fbv", assetSymbol, debtSymbol));
 
     bytes32 salt = keccak256(abi.encode(deployData, nonce));
-    nonce++;
+    unchecked {
+      ++nonce;
+    }
 
     bytes memory creationCode =
       LibBytes.concat(LibSSTORE2.read(_creationAddress1), LibSSTORE2.read(_creationAddress2));
@@ -98,7 +100,7 @@ contract BorrowingVaultFactory is VaultDeployer {
    * @dev Requirements:
    * - Must be called from a timelock.
    */
-  function setContractCode(bytes calldata creationCode) external onlyTimelock {
+  function setContractCode(bytes calldata creationCode) external payable onlyTimelock {
     bytes memory firstHalf = LibBytes.slice(creationCode, 0, 13000);
     _creationAddress1 = LibSSTORE2.write(firstHalf);
     if (creationCode.length > 13000) {

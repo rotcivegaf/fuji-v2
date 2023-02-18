@@ -9,11 +9,14 @@ pragma solidity 0.8.15;
  * using Chainlink as the standard oracle to view latest price.
  */
 
+import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 import {SystemAccessControl} from "./access/SystemAccessControl.sol";
 import {IAggregatorV3} from "./interfaces/chainlink/IAggregatorV3.sol";
 import {IFujiOracle} from "./interfaces/IFujiOracle.sol";
 
-contract FujiOracle is IFujiOracle, SystemAccessControl {
+contract FujiOracle is IFujiOracle, SystemAccessControl, Ownable {
+  event SetObservationFrequency(uint256 observationFrequency);
+
   error FujiOracle__lengthMismatch();
   error FujiOracle__noZeroAddress();
   error FujiOracle__noPriceFeed();
@@ -21,9 +24,12 @@ contract FujiOracle is IFujiOracle, SystemAccessControl {
   error FujiOracle__negativePrice(int256 latestPrice);
   error FujiOracle__stalePrice();
   error FujiOracle__roundNotComplete();
+  error FujiOracle__outdatedPrice();
 
   ///@notice Mapping from asset address to its Chainlink price feed oracle address.
   mapping(address => address) public usdPriceFeeds;
+
+  uint256 public observationFrequency = 24 hours;
 
   /**
    * @notice Constructor of a new {FujiOracle}.
@@ -71,6 +77,12 @@ contract FujiOracle is IFujiOracle, SystemAccessControl {
 
     usdPriceFeeds[asset] = priceFeed;
     emit AssetPriceFeedChanged(asset, priceFeed);
+  }
+
+  function setObservationFrequency(uint256 _observationFrequency) external onlyOwner {
+    observationFrequency = _observationFrequency;
+
+    emit SetObservationFrequency(_observationFrequency);
   }
 
   /// @inheritdoc IFujiOracle
@@ -123,6 +135,9 @@ contract FujiOracle is IFujiOracle, SystemAccessControl {
     }
     if (updatedAt == 0) {
       revert FujiOracle__roundNotComplete();
+    }
+    if (updatedAt < block.timestamp - observationFrequency) {
+      revert FujiOracle__outdatedPrice();
     }
 
     price = uint256(latestPrice);

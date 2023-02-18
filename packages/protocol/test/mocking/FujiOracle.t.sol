@@ -22,6 +22,7 @@ contract FujiOracleUnitTests is Test {
     priceFeeds[0] = address(mockPriceFeed);
 
     fujiOracle = new FujiOracle(assets, priceFeeds, address(0));
+    vm.warp(360 days);
   }
 
   function test_getPriceOfOnNegativePrice() public {
@@ -47,9 +48,20 @@ contract FujiOracleUnitTests is Test {
   }
 
   function test_getPriceOfOnRoundNotComplete() public {
-    mockPriceFeed.setIsUpdatedAtZero();
+    mockPriceFeed.setUpdatedAt(0);
 
     vm.expectRevert(FujiOracle.FujiOracle__roundNotComplete.selector);
+    fujiOracle.getPriceOf(
+      address(asset),
+      address(0),
+      8
+    );
+  }
+
+  function test_getPriceOfOnOutdatedPrice() public {
+    mockPriceFeed.setUpdatedAt(uint80(block.timestamp - fujiOracle.observationFrequency() - 1));
+
+    vm.expectRevert(abi.encodeWithSelector(FujiOracle.FujiOracle__outdatedPrice.selector));
     fujiOracle.getPriceOf(
       address(asset),
       address(0),

@@ -18,6 +18,9 @@ contract FujiOracle is IFujiOracle, SystemAccessControl {
   error FujiOracle__noZeroAddress();
   error FujiOracle__noPriceFeed();
   error FujiOracle_invalidPriceFeedDecimals(address priceFeed);
+  error FujiOracle__negativePrice(int256 latestPrice);
+  error FujiOracle__stalePrice();
+  error FujiOracle__roundNotComplete();
 
   ///@notice Mapping from asset address to its Chainlink price feed oracle address.
   mapping(address => address) public usdPriceFeeds;
@@ -110,7 +113,17 @@ contract FujiOracle is IFujiOracle, SystemAccessControl {
       revert FujiOracle__noPriceFeed();
     }
 
-    (, int256 latestPrice,,,) = IAggregatorV3(usdPriceFeeds[asset]).latestRoundData();
+    (uint80 roundID, int256 latestPrice,, uint256 updatedAt, uint80 answeredInRound) = IAggregatorV3(usdPriceFeeds[asset]).latestRoundData();
+
+    if (latestPrice <= 0) {
+      revert FujiOracle__negativePrice(latestPrice);
+    }
+    if (answeredInRound < roundID) {
+      revert FujiOracle__stalePrice();
+    }
+    if (updatedAt == 0) {
+      revert FujiOracle__roundNotComplete();
+    }
 
     price = uint256(latestPrice);
   }

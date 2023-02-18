@@ -15,6 +15,8 @@ contract MockChainlinkPriceFeed is IAggregatorV3 {
   string simulatedDescription;
   uint8 simulatedDecimals;
   int256 fakePrice;
+  uint80 _answeredInRound = 92233720368547793488;
+  bool isUpdatedAtZero;
 
   constructor(string memory description_, uint8 decimals_, int256 fakePrice_) {
     simulatedDescription = description_;
@@ -32,6 +34,14 @@ contract MockChainlinkPriceFeed is IAggregatorV3 {
     simulatedDescription = description_;
     simulatedDecimals = decimals_;
     fakePrice = fakePrice_;
+  }
+
+  function setAnsweredInRound(uint80 answeredInRound_) external {
+    _answeredInRound = answeredInRound_;
+  }
+
+  function setIsUpdatedAtZero() external {
+    isUpdatedAtZero = true;
   }
 
   function decimals() external view override returns (uint8) {
@@ -85,7 +95,11 @@ contract MockChainlinkPriceFeed is IAggregatorV3 {
     roundId = 92233720368547793488;
     answer = fakePrice;
     startedAt = block.timestamp;
-    updatedAt = block.timestamp;
-    answeredInRound = roundId;
+    if (isUpdatedAtZero) {
+      updatedAt = 0;
+    } else {
+      updatedAt = block.timestamp;
+    }
+    answeredInRound = _answeredInRound;
   }
 }

@@ -7,7 +7,7 @@ import {MockERC20} from "../../src/mocks/MockERC20.sol";
 import {MockChainlinkPriceFeed} from "../../src/mocks/MockChainlinkPriceFeed.sol";
 
 contract FujiOracleUnitTests is Test {
-  FujiOracle public fujiOracle;
+  FujiOracle fujiOracle;
   MockERC20 asset;
   MockChainlinkPriceFeed mockPriceFeed;
 

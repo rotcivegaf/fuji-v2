@@ -310,8 +310,10 @@ abstract contract BaseRouter is SystemAccessControl, IRouter {
   )
     internal
   {
-    if (sender != address(this) && (sender == owner || sender == msg.sender)) {
-      ERC20(token).safeTransferFrom(sender, address(this), amount);
+    if (sender != address(this) && sender == owner) {
+      if (sender == msg.sender) {
+        ERC20(token).safeTransferFrom(sender, address(this), amount);
+      }
     }
   }
 

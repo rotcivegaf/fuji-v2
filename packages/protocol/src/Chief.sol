@@ -294,7 +294,12 @@ contract Chief is CoreRoles, AccessControl, IChief {
    */
   function pauseForceAllVaults() external onlyRole(PAUSER_ROLE) {
     bytes memory callData = abi.encodeWithSelector(IPausableVault.pauseForceAll.selector);
-    _changePauseState(callData);
+    _changePauseState(_vaults, callData);
+  }
+
+  function pauseForceVaults(address[] calldata vaults) external onlyRole(PAUSER_ROLE) {
+    bytes memory callData = abi.encodeWithSelector(IPausableVault.pauseForceAll.selector);
+    _changePauseState(vaults, callData);
   }
 
   /**
@@ -305,7 +310,12 @@ contract Chief is CoreRoles, AccessControl, IChief {
    */
   function unpauseForceAllVaults() external onlyRole(UNPAUSER_ROLE) {
     bytes memory callData = abi.encodeWithSelector(IPausableVault.unpauseForceAll.selector);
-    _changePauseState(callData);
+    _changePauseState(_vaults, callData);
+  }
+
+  function unpauseForceVaults(address[] calldata vaults) external onlyRole(PAUSER_ROLE) {
+    bytes memory callData = abi.encodeWithSelector(IPausableVault.unpauseForceAll.selector);
+    _changePauseState(vaults, callData);
   }
 
   /**
@@ -322,7 +332,15 @@ contract Chief is CoreRoles, AccessControl, IChief {
     onlyRole(PAUSER_ROLE)
   {
     bytes memory callData = abi.encodeWithSelector(IPausableVault.pause.selector, action);
-    _changePauseState(callData);
+    _changePauseState(_vaults, callData);
+  }
+
+  function pauseActionInVaults(address[] calldata vaults, IPausableVault.VaultActions action)
+    external
+    onlyRole(PAUSER_ROLE)
+  {
+    bytes memory callData = abi.encodeWithSelector(IPausableVault.pause.selector, action);
+    _changePauseState(vaults, callData);
   }
 
   /**
@@ -339,7 +357,15 @@ contract Chief is CoreRoles, AccessControl, IChief {
     onlyRole(UNPAUSER_ROLE)
   {
     bytes memory callData = abi.encodeWithSelector(IPausableVault.unpause.selector, uint8(action));
-    _changePauseState(callData);
+    _changePauseState(_vaults, callData);
+  }
+
+  function upauseActionInVaults(address[] calldata vaults, IPausableVault.VaultActions action)
+    external
+    onlyRole(UNPAUSER_ROLE)
+  {
+    bytes memory callData = abi.encodeWithSelector(IPausableVault.unpause.selector, uint8(action));
+    _changePauseState(vaults, callData);
   }
 
   /**
@@ -364,10 +390,10 @@ contract Chief is CoreRoles, AccessControl, IChief {
    *
    * @param callData encoded data containing pause or unpause commands.
    */
-  function _changePauseState(bytes memory callData) internal {
-    uint256 alength = _vaults.length;
+  function _changePauseState(address[] memory vaults, bytes memory callData) internal {
+    uint256 alength = vaults.length;
     for (uint256 i; i < alength;) {
-      address(_vaults[i]).functionCall(callData, ": pause call failed");
+      vaults[i].functionCall(callData, ": pause call failed");
       unchecked {
         ++i;
       }

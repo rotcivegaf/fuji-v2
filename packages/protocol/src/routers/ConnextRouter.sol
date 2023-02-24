@@ -290,10 +290,10 @@ contract ConnextRouter is BaseRouter, IXReceiver {
 
     IConnext _connext = connext;
     _safePullTokenFrom(asset, msg.sender, msg.sender, amount);
-    _safeApprove(asset, address(connext), amount);
+    _safeApprove(asset, address(_connext), amount);
     address router = routerByDomain[destDomain];
 
-    bytes32 transferId = connext.xcall(
+    bytes32 transferId = _connext.xcall(
       // _destination: Domain ID of the destination chain
       uint32(destDomain),
       // _to: address of the target contract

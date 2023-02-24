@@ -26,12 +26,9 @@ contract BorrowingVaultFactory is VaultDeployer {
   error BorrowingVaultFactory__deployVault_failed();
 
   event DeployBorrowingVault(
-    address indexed vault,
-    address indexed asset,
     address indexed debtAsset,
     string name,
-    string symbol,
-    bytes32 salt
+    string symbol
   );
 
   uint256 private nonce;
@@ -87,9 +84,8 @@ contract BorrowingVaultFactory is VaultDeployer {
     }
     if (vault == address(0)) revert BorrowingVaultFactory__deployVault_failed();
 
-    _registerVault(vault, asset, salt);
-
-    emit DeployBorrowingVault(vault, asset, debtAsset, name, symbol, salt);
+    emit VaultRegistered(vault, asset, salt);
+    emit DeployBorrowingVault(debtAsset, name, symbol);
   }
 
   /**

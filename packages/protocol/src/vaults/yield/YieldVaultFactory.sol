@@ -52,6 +52,6 @@ contract YieldVaultFactory is VaultDeployer {
       ++nonce;
     }
     vault = address(new YieldVault{salt: salt}(asset, chief, name, symbol, providers));
-    _registerVault(vault, asset, salt);
+    emit VaultRegistered(vault, asset, salt);
   }
 }

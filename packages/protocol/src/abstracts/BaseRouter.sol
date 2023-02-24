@@ -415,7 +415,7 @@ abstract contract BaseRouter is SystemAccessControl, IRouter {
    *
    * @param user address to verify is the beneficiary
    */
-  function _checkBeneficiary(address beneficiary, address user) internal returns(address){
+  function _checkBeneficiary(address beneficiary, address user) internal pure returns(address){
     if (beneficiary == address(0)) {
       return user;
     } else {
